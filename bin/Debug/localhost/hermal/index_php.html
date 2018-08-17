@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Thermal Profile</title>
+    <script>
+
+        matArr = []
+        matNo=0
+        units = {
+            currentUnit:0,
+            slength:["mm","inch"],
+            llength:["km","mi"],
+            temp:["C","F"],
+            speed:["m/s","mph"]
+        }
+
+        function ajax(target, addData, callback, ret,extData)
+		{
+			var xhttp = new XMLHttpRequest();
+			var data = new FormData();
+			addData(data,extData)
+			xhttp.onreadystatechange = function() {
+				if (this.readyState == 4 && this.status == 200) {
+					callback(this, ret)
+				}
+			};
+			xhttp.open("POST", target, true);
+			xhttp.send(data);
+		}
+
+        function getMaterials()
+        {
+            matArr = {val: ""};
+            ajax("getMaterials.php", function(data){},function(obj, ret){
+                console.log(obj.responseText)
+                console.log(JSON.parse(obj.responseText).val)
+                
+                ret.val = JSON.parse(obj.responseText).val
+                addMaterial()
+            }, matArr)
+            //matArr = matArr.val
+        }
+
+        function getResults(form)
+        {
+            result = document.getElementById("result")
+            ajax("thermalProfileCalc.php",function(data, extData){
+                console.log(extData)
+                Object.keys(extData).forEach(function(key,index) {
+                    //console.log(key)
+                    //console.log(extData[key])
+                    if(extData[key].type != "radio" || (extData[key].type == "radio" && extData[key].checked == true))
+                    {
+                        data.append(extData[key].name,extData[key].value)
+                    }
+                    if(extData[key].class == "matList")
+                    {
+                        data.append(extData[key].name, extData[key].options[extData[key].selectedIndex].value)
+                    }
+                })
+                data.append("matNo", matNo)
+                console.log(data)
+            },function(obj,ret){
+                console.log(obj.responseText)
+                //console.log(JSON.parse(obj.responseText).val)
+                //result.innerHTML = JSON.parse(obj.responseText).val
+                if(obj.responseText != 'No POST' && obj.responseText != 'Credential Error' && obj.responseText != 'Internal Error')
+                {
+                    result.innerHTML = '<img src="data:image/png;base64,'+obj.responseText+'"/>'
+                }
+                else
+                {
+                    alert(obj.responseText)
+                }
+            },result, form)
+        }
+
+        function changeUnits(radio)
+        {
+            var uno = parseInt(radio.value)
+            replaceInClass("speedUnit","("+units.speed[uno]+")")
+            replaceInClass("tempUnit","("+units.temp[uno]+")")
+            replaceInClass("slengthUnit","("+units.slength[uno]+")")
+            replaceInClass("llengthUnit","("+units.llength[uno]+")")
+            if(uno == 0 && units.currentUnit != uno)
+            {
+                multiplyInputs("uS", 0.44704)
+                var arr = document.getElementsByClassName("uT")
+                for(var i=0;i<arr.length;i++)
+                {
+                    arr[i].children[0].value = parseInt(arr[i].children[0].value)-32
+                }
+                multiplyInputs("uT", (5/9))
+                multiplyInputs("usL", 25.4)
+                multiplyInputs("ulL", 1.609344)
+            }
+            if(uno == 1 && units.currentUnit != uno)
+            {
+                multiplyInputs("uS", 2.23693629)
+                multiplyInputs("uT", 1.8)
+                var arr = document.getElementsByClassName("uT")
+                for(var i=0;i<arr.length;i++)
+                {
+                    arr[i].children[0].value = parseInt(arr[i].children[0].value)+32
+                }
+                multiplyInputs("usL", 0.0393700787)
+                multiplyInputs("ulL", 0.621371192)
+            }
+            units.currentUnit = uno
+        }
+
+        function round(n, k)
+        {
+            var factor = Math.pow(10, k);
+            return Math.round(n*factor)/factor;
+        }
+
+        function multiplyInputs(classv, mult)
+        {
+            var arr = document.getElementsByClassName(classv)
+            for(var i=0;i<arr.length;i++)
+            {
+                //console.log(arr[i])
+                //arr[i].children[0].value *= mult
+                arr[i].children[0].value = round(mult*arr[i].children[0].value, 4)
+                
+            }
+        }
+
+        function replaceInClass(classv, rep)
+        {
+            var arr = document.getElementsByClassName(classv)
+            for(var i=0;i<arr.length;i++)
+            {
+                arr[i].innerHTML = rep
+            }
+        }
+        
+        
+        function changeCheck(el)
+        {
+            console.log(el)
+            var rad = document.getElementById("radius")
+            if(el.name == "construction")
+            {
+                if(el.value == "hcyl" || el.value == "vcyl")
+                {
+                    rad.setAttribute("class","usL")
+                    rad.innerHTML = 'Radius <input type="number" name="radius"><span class="slengthUnit">'+units.slength[units.currentUnit]+'</span>'
+                }
+                else
+                {
+                    rad.removeAttribute("class")
+                    rad.innerHTML = ""
+                }
+            }
+        }
+        
+
+        function validateForm(form)
+        {
+            //doesExcedeMaxMatTemp(form)
+            //isProperThickness(form)
+            //saveFormData(form)
+            getResults(form)
+        }
+
+        /*
+        function saveFormData(form)
+        {
+            console.log("Saving data")
+            var cookie = document.cookie
+            cookie = "ambientTemp="+form.ambientTemp
+            //cookie = form.windspeed
+            //cookie = form.emissivity
+            //cookie = form.units
+        }
+
+        function loadFormData()
+        {
+            console.log("Loading data")
+            var form = document.getElementById("mainForm")
+            var cookie = document.cookie
+            form.ambientTemp = cookie.ambientTemp
+        }
+        */
+
+        function addMaterial(){
+            var mats = document.getElementById("mats")
+            
+            
+            console.log(matArr)
+            var string = ""
+            string+='<select class="matList" name="mat'+matNo+'" form="mainForm">'
+            for(var i=0;i<matArr.val.length;i++)
+                {
+                    string+='<option value='+matArr.val[i].id+'>'+matArr.val[i].name+'</option>'
+                }
+            string+='</select><input type="number" min="0" name="thickness'+matNo+'">'
+            
+            mats.innerHTML += string
+            matNo++
+        }
+
+        window.onload = function(){
+        console.log("Loading")
+        getMaterials()
+        console.log(matArr)
+        //loadFormData()
+            
+        document.getElementById("addSlot").addEventListener("click",addMaterial, false)
+        }
+    </script>
+</head>
+<body>
+    <form action="#" onsubmit="validateForm(this); return false" method="POST" id="mainForm">
+        <label class="uT">Ambient Temp. <input type="number" name="ambientTemp" step="0.1"required><span class="tempUnit">(C)</span></label>
+        <label class="uT">Hot Face Temp. <input type="number" name="hotFace" step="0.1"required><span class="tempUnit">(C)</span></label>
+        <label class="uS">Windspeed <input type="number" name="windspeed" min="0" step="0.1" required><span class="speedUnit">(m/s)</span></label>
+        <label>Emissivity <input type="number" name="emissivity" max="1" min="0" step="0.01" required></label>
+
+        <label>Units</label>
+            <label>Metric<input type="radio" name="units" value="0" checked="checked" onclick="changeUnits(this)"></label>
+            <label>Imperial<input type="radio" name="units" value="1" onclick="changeUnits(this)"></label>
+
+        <label>Construction</label>
+            <label>Sidewall<input type="radio" name="construction" value="side" checked="checked" onclick="changeCheck(this)"></label>
+            <label>Hearth<input type="radio" name="construction" value="hear" onclick="changeCheck(this)"></label>
+            <label>Roof<input type="radio" name="construction" value="roof" onclick="changeCheck(this)"></label>
+            <label>Vertical Cylinder<input type="radio" name="construction" value="vcyl" onclick="changeCheck(this)"></label>
+            <label>Horizontal Cylinder<input type="radio" name="construction" value="hcyl" onclick="changeCheck(this)"></label>
+            <label id="radius"></label>
+            <button id="addSlot" type="button">Add material slot</button>
+        <label id="mats"></label>
+        <button type="submit">Calculate</button>
+    </form>
+    <div id="result"></div>
+</body>
+</html>

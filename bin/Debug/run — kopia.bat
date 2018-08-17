@@ -1,0 +1,1 @@
+NetDoer.exe localhost thermal/index.php
